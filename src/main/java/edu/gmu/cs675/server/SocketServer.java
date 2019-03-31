@@ -2,13 +2,18 @@ package edu.gmu.cs675.server;
 
 
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SocketServer {
     public InetAddress inetAddress;
     private int port = 1024;
-
+    private Map<String, String> packetsRecivedMap = new ConcurrentHashMap<>();
 
     public InetAddress getSelfIP() throws SocketException, UnknownHostException {
 
@@ -26,7 +31,7 @@ public class SocketServer {
             this.inetAddress = getSelfIP();
             System.out.println("Clock Server Startup Complete");
             System.out.println("ip -- " + this.inetAddress.getHostAddress());
-            Thread clock = new Thread(new SocketListner(socket));
+            Thread clock = new Thread(new SocketListner(socket, packetsRecivedMap));
             clock.start();
             exitCommand();
         } catch (IOException e) {
@@ -37,10 +42,14 @@ public class SocketServer {
 
     public void exitCommand() {
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Please Enter 'E' for exit");
+        System.out.println("1. Enter S for Number of packets received");
+        System.out.println("2. Please Enter 'E' for exit");
         while (true) {
-            if (scanner.nextLine().toUpperCase().charAt(0) == 'E') {
+            char input = scanner.nextLine().toUpperCase().charAt(0);
+            if (input == 'E') {
                 System.exit(1);
+            } else if (input == 'S') {
+                System.out.println("Number of packets received = "+packetsRecivedMap.size());
             } else {
                 System.out.println("Please enter the right command.");
             }
@@ -48,6 +57,8 @@ public class SocketServer {
     }
 
     public static void main(String[] args) {
+        System.out.print("\033[H\033[2J");
+        System.out.flush();
         SocketServer socketServer = new SocketServer();
         socketServer.startSocketServer();
     }
