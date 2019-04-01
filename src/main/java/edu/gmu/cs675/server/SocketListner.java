@@ -26,7 +26,8 @@ public class SocketListner implements Runnable {
                 String reciverString = new String(packet.getData(), 0, packet.getLength());
 //                System.out.println(reciverString);
                 String input[] = reciverString.split(" ");
-                if(input[0] == "1"){
+                if(input[0].equals("1")){
+                    System.out.println("Here");
                     packetsRecived.clear();
                 }
                 packetsRecived.put(input[0],input[1]);
