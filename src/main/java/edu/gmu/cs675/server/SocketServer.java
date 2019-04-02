@@ -45,13 +45,17 @@ public class SocketServer {
         System.out.println("1. Enter S for Number of packets received");
         System.out.println("2. Please Enter 'E' for exit");
         while (true) {
-            char input = scanner.nextLine().toUpperCase().charAt(0);
-            if (input == 'E') {
-                System.exit(1);
-            } else if (input == 'S') {
-                System.out.println("Number of packets received = "+packetsRecivedMap.size());
-            } else {
-                System.out.println("Please enter the right command.");
+            try {
+                char input = scanner.nextLine().toUpperCase().charAt(0);
+                if (input == 'E') {
+                    System.exit(1);
+                } else if (input == 'S') {
+                    System.out.println("Number of packets received = " + packetsRecivedMap.size());
+                } else {
+                    System.out.println("Please enter the right command.");
+                }
+            } catch (StringIndexOutOfBoundsException e) {
+                System.out.println("Kindly enter a command");
             }
         }
     }
