@@ -17,22 +17,31 @@ public class ClockCLient {
     SortedSet<Integer> packetReceivedSet;
     Set<Integer> droppedPacketsSet;
     Calendar localCLientTime;
+    List<Map.Entry<Long, Double>> smoothTheta;
+    double averageTheta;
+    double averageRoundTrip;
+    float timeInHours;
 
     public ClockCLient(String ip) {
 
         this.id = 0;
-        packetsToSend = this.numberOfPacketsToSend();
-        droppedPacketsSet = new HashSet<>();
-        packetReceivedSet = Collections.synchronizedSortedSet(new TreeSet<>());
-        this.initializeFile();
+        this.packetsToSend = this.numberOfPacketsToSend();
+        this.droppedPacketsSet = new HashSet<>();
+        this.packetReceivedSet = Collections.synchronizedSortedSet(new TreeSet<>());
         this.clockClientSocket = new ClockClientSocket(ip);
-        localCLientTime = Calendar.getInstance();
+        this.localCLientTime = Calendar.getInstance();
+        this.smoothTheta = new ArrayList<>();
+
+        this.averageTheta = 0;
+        this.averageRoundTrip = 0;
+
+        this.initializeFile();
         this.initializeSchedule();
     }
 
     void initializeFile() {
         try {
-            fileWriter = new PrintWriter("time.txt", "UTF-8");
+            fileWriter = new PrintWriter("log.txt", "UTF-8");
             fileWriter.write("-----------------------------------------------------------\n\tTime Analysis over "
                     + packetsToSend + " packets");
         } catch (IOException e) {
@@ -55,18 +64,7 @@ public class ClockCLient {
         ClockCLient clockCLient = new ClockCLient(serverIP);
         System.out.println("The current system time  = " + clockCLient.localCLientTime.getTime());
         System.out.println("\n\nThe number of packets to be sent is " + clockCLient.packetsToSend);
-        clockCLient.scheduler.schedule(() -> {
-
-            try {
-                clockCLient.fileWriter.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            clockCLient.future.cancel(true);
-            clockCLient.scheduler.shutdown();
-
-            System.out.println("Cancelled");
-        }, clockCLient.packetsToSend * 10, TimeUnit.SECONDS);
+        clockCLient.scheduler.schedule(() -> clockCLient.manageClientShutdown(), clockCLient.packetsToSend * 10, TimeUnit.SECONDS);
 
         try {
             clockCLient.future.get();
@@ -91,8 +89,9 @@ public class ClockCLient {
             packetReceivedSet.add(id);
             messageFromServer += " " + Instant.now().toEpochMilli();
             System.out.println(messageFromServer);
-            processTime(messageFromServer, id);
+            processTime(messageFromServer, id, packetReceivedSet.size());
         } catch (IOException e) {
+            droppedPacketsSet.add(id);
             System.out.println("The packet number " + id + " failed because " + e.getMessage() + " inside thread " + Thread.currentThread().getId());
             System.out.println("\n");
         }
@@ -103,11 +102,11 @@ public class ClockCLient {
         System.out.println("Please enter the amount of time (in hours) you need to synchronize for ");
         System.out.println("Common Examples\n\t0.0166667 for 1 minutes\n\t0.16667 for 10 minutes\n\t0.5 for 30 minutes");
         System.out.print("Time --> ");
-        float timeInHours = scanner.nextFloat();
+        timeInHours = scanner.nextFloat();
         return (int) Math.rint((timeInHours * 60 * 60) / 10);
     }
 
-    void processTime(String messages, int id) {
+    void processTime(String messages, int id, int size) {
         String time[] = messages.split(" ", 0);
         StringBuilder printString = new StringBuilder();
         if (packetReceivedSet.last() <= id) {
@@ -115,19 +114,40 @@ public class ClockCLient {
             long t1 = Long.parseLong(time[3]);
             long t2 = Long.parseLong(time[2]);
             long t3 = Long.parseLong(time[1]);
+
             long rtt = (t2 - t3) + (t0 - t1);
-            double theta = (double) rtt / 2;
-            this.localCLientTime.setTimeInMillis((long) (t0 + theta));
-            printString.append("\npacket - " + id + " rtt : " + rtt + "; theta : " + theta + " and current set time " + this.localCLientTime.getTime());
-            long drift = (((long) (t0 + theta)) - t3);
-            printString.append(" Drift :  "+drift);
+            double theta = (double) (((t2 - t3) - (t0 - t1)) / 2);
+
+            if (smoothTheta.size() == 8) {
+                smoothTheta.remove(0);
+            }
+            smoothTheta.add(new AbstractMap.SimpleEntry<>(rtt, theta));
+
+            long low = Integer.MAX_VALUE;
+            Double newTheta = -1.0;
+            for (Map.Entry<Long, Double> entry : smoothTheta) {
+                if (entry.getKey() <= low) {
+                    low = entry.getKey();
+                    newTheta = entry.getValue();
+                }
+            }
+
+            long newTime = (long) (t0 + newTheta);
+
+            this.localCLientTime.setTimeInMillis(newTime);
+            Calendar hwTime = Calendar.getInstance();
+            hwTime.setTimeInMillis(t0);
+
+
+            printString.append("\npacket - " + id +
+                    ":- rtt : " + rtt + "; theta : " + theta + "; Smoothed Theta : " + newTheta + "; --  Hardware Time " + t3
+                    + " V/S and current set time " + newTime);
+            printString.append("\n\tHW time (in minutes and seconds)" + hwTime.getTime() + " vs New time " + this.localCLientTime.getTime() + "\n");
+            averageTheta = ((averageTheta * (size - 1)) + theta) / size;
+            averageRoundTrip = (averageRoundTrip*(size-1) + rtt)/size;
 
         } else {
-
             droppedPacketsSet.add(id);
-
-            printString.append("\nPacket " + id + " came too late");
-
         }
 
         try {
@@ -135,6 +155,39 @@ public class ClockCLient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
+    void manageClientShutdown() {
+
+        try {
+            if (droppedPacketsSet.size() > 0) {
+                this.fileWriter.write("\n--> Dropped Packets List -- ");
+                for (Integer packetId : this.droppedPacketsSet) {
+                    this.fileWriter.write(" " + packetId + ",");
+                }
+            }
+            this.fileWriter.close();
+
+            fileWriter = new PrintWriter("Results.txt", "UTF-8");
+            int packetsProcessed = this.packetsToSend - this.droppedPacketsSet.size();
+            float packetsProcessedPercentage = (float) (this.droppedPacketsSet.size() * 100 / this.packetsToSend);
+            StringBuilder reportMessage = new StringBuilder();
+            reportMessage.append("---------- Report and Stats -------------\n");
+            reportMessage.append("\n1. Hours of operations....").append(this.timeInHours).append(" (").append(this.timeInHours * 60).append(" minutes)");
+            reportMessage.append("\n2. Number of Packets Processed ").append(packetsProcessed);
+            reportMessage.append("\n3. Number of dropped Packets ").append(this.droppedPacketsSet.size());
+            reportMessage.append("\n4. Percentage of dropped Packets ").append(packetsProcessedPercentage);
+            reportMessage.append("\n5. Average rtt ").append(this.averageRoundTrip);
+            reportMessage.append("\n5. Average theta ").append(this.averageTheta);
+            this.fileWriter.write(reportMessage.toString());
+            this.fileWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        this.future.cancel(true);
+        this.scheduler.shutdown();
+
+        System.out.println("\n The program will now terminate");
     }
 }
