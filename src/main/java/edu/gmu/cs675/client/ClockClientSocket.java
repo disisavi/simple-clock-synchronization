@@ -10,6 +10,7 @@ public class ClockClientSocket {
     DatagramSocket socket;
     int port = 1024;
     DatagramPacket packet = null;
+    int timeoutTIme = 5000;
 
     ClockClientSocket(String ip) {
         try {
@@ -54,7 +55,7 @@ public class ClockClientSocket {
 
         try {
             byte[] message = new byte[256];
-            this.socket.setSoTimeout(10000);
+            this.socket.setSoTimeout(this.timeoutTIme);
             DatagramPacket packet = new DatagramPacket(message, message.length);
             socket.receive(packet);
             String returnString = new String(packet.getData(), 0, packet.getLength());
