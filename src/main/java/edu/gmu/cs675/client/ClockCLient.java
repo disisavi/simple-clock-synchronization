@@ -5,9 +5,6 @@ import org.decimal4j.util.DoubleRounder;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.text.DecimalFormat;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -60,7 +57,7 @@ public class ClockCLient {
     }
 
     void initializeSchedule() {
-        this.scheduler = Executors.newScheduledThreadPool(100);
+        this.scheduler = Executors.newScheduledThreadPool(3);
         this.future = scheduler.scheduleAtFixedRate(this::run, 10, 10, TimeUnit.SECONDS);
     }
 
@@ -89,7 +86,7 @@ public class ClockCLient {
     void setCurrentTime() {
         long timenow = System.nanoTime();
         timenow = Math.round((double) ((timenow - timeOffset) / 1000000));
-        this.localCLienTime.setTimeInMillis(timenow);
+        this.localCLienTime.setTimeInMillis((this.localCLienTime.getTimeInMillis() + timenow));
     }
 
     void run() {
@@ -134,7 +131,7 @@ public class ClockCLient {
             long rtt = (t2 - t3) + (t0 - t1);
             double theta = (double) (((t2 - t3) - (t0 - t1)) / 2);
 
-            double histTheta = DoubleRounder.round(theta,3);
+            double histTheta = DoubleRounder.round(theta, 3);
 
             if (thetaFrequency.containsKey(histTheta)) {
                 thetaFrequency.put(histTheta, (thetaFrequency.get(histTheta) + 1));
@@ -193,7 +190,7 @@ public class ClockCLient {
             }
             this.fileWriter.close();
 
-            fileWriter = new PrintWriter("Results.txt", "UTF-8");
+            fileWriter = new PrintWriter("results.txt", "UTF-8");
             int packetsProcessed = this.packetsToSend - this.droppedPacketsSet.size();
             float packetsProcessedPercentage = (float) (this.droppedPacketsSet.size() * 100 / this.packetsToSend);
             StringBuilder reportMessage = new StringBuilder();
