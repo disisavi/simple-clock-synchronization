@@ -154,7 +154,7 @@
                                 <manifest>
                                     <addClasspath>true</addClasspath>
                                     <classpathPrefix>lib/</classpathPrefix>
-                                    <mainClass>edu.gmu.cs675.client.ClockCLient</mainClass>
+                                    <mainClass>edu.gmu.cs675.client.ClockClient</mainClass>
                                 </manifest>
                             </archive>
                             <includes>
