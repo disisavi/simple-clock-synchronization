@@ -10,7 +10,7 @@ public class ClockClientSocket {
     DatagramSocket socket;
     int port = 1024;
     DatagramPacket packet = null;
-    int timeoutTIme = 5000;
+    int timeoutTIme = 9000;
 
     ClockClientSocket(String ip) {
         try {
@@ -19,24 +19,6 @@ public class ClockClientSocket {
         } catch (IOException e) {
             System.out.println("Error -- Couldn't connect to server" + e.getMessage());
             e.printStackTrace();
-        }
-    }
-
-    public String serverConnectionPoint(String stringPackket) throws IOException {
-        byte[] message = stringPackket.getBytes();
-        if (null == packet) {
-            packet = new DatagramPacket(message, message.length, this.serverIP, this.port);
-        } else packet.setData(message);
-        try {
-            socket.send(packet);
-            message = new byte[256];
-            packet = new DatagramPacket(message, message.length);
-            socket.receive(packet);
-            String returnString = new String(packet.getData(), 0, packet.getLength());
-            return returnString;
-        } catch (IOException e) {
-            System.out.println("Couldn't Send/receive packet because " + e.getMessage());
-            throw e;
         }
     }
 
