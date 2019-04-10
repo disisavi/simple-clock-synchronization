@@ -14,4 +14,4 @@ printf "Please enter the amount of time (in hours) you need to synchronize for\n
 printf "Enter the time and press [Enter]"
 read time
 
-nohup java -jar target/simple-clock-synchronization-1.0-SNAPSHOT-client.jar $serverip $time & 
+nohup java -jar target/simple-clock-synchronization-1.0-SNAPSHOT-client.jar $serverip $time > clientTime.log & 

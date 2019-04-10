@@ -19,7 +19,6 @@ public class ClockClient {
     SortedSet<Integer> packetReceivedSet;
     Set<Integer> droppedPacketsSet;
     Calendar localCLienTime;
-    long timeOffset;
     List<Map.Entry<Long, Double>> smoothTheta;
     double averageTheta;
     double averageRoundTrip;
@@ -46,9 +45,11 @@ public class ClockClient {
     void initialiseVariables(String ip) {
         this.id = 0;
         this.droppedPacketsSet = new HashSet<>();
-        this.timeOffset = System.nanoTime();
         this.thetaFrequency = new TreeMap<>();
+
         this.localCLienTime = Calendar.getInstance();
+        localCLienTime.setTimeInMillis(Instant.now().toEpochMilli());
+
         this.smoothTheta = new ArrayList<>();
         this.averageTheta = 0;
         this.averageRoundTrip = 0;
@@ -109,26 +110,18 @@ public class ClockClient {
         }
     }
 
-    void setCurrentTime() {
-        long timenow = System.nanoTime();
-        timenow = Math.round((double) ((timenow - timeOffset) / 1000000));
-        this.localCLienTime.setTimeInMillis((this.localCLienTime.getTimeInMillis() + timenow));
-        this.timeOffset = System.nanoTime();
-    }
 
     void run() {
         id++;
         int id = this.id;
-//        System.out.println("Sending packet " + id + " from Thread id " + Thread.currentThread().getId());
-        this.setCurrentTime();
-        String now = Long.toString(this.localCLienTime.getTimeInMillis());
+        String now = Long.toString(Instant.now().toEpochMilli());
         String messageToServer = id + " " + now;
         try {
             this.clockClientSocket.sendToServer(messageToServer);
             String messageFromServer = this.clockClientSocket.receiveFromServer();
             packetReceivedSet.add(id);
-            this.setCurrentTime();
-            messageFromServer += " " + this.localCLienTime.getTimeInMillis();
+//            messageFromServer += " " + this.localCLienTime.getTimeInMillis();
+            messageFromServer += " " + Instant.now().toEpochMilli();
             System.out.println(messageFromServer + " Process Thread -->" + Thread.currentThread().getId());
             processTime(messageFromServer, id, packetReceivedSet.size());
         } catch (IOException e) {
@@ -170,7 +163,7 @@ public class ClockClient {
             long rtt = (t2 - t3) + (t0 - t1);
             double theta = (double) (((t2 - t3) - (t0 - t1)) / 2);
 
-            double histTheta = DoubleRounder.round(theta, 3);
+            double histTheta = DoubleRounder.round(theta, 5);
 
             if (thetaFrequency.containsKey(histTheta)) {
                 thetaFrequency.put(histTheta, (thetaFrequency.get(histTheta) + 1));
@@ -193,7 +186,6 @@ public class ClockClient {
             }
 
             long newTime = (long) (t0 + newTheta);
-            this.setCurrentTime();
             this.localCLienTime.setTimeInMillis(newTime);
 
             Calendar hwTime = Calendar.getInstance();
@@ -209,6 +201,7 @@ public class ClockClient {
 
         } else {
             droppedPacketsSet.add(id);
+            System.out.println("Packet " + id + " dropped as it came late ");
         }
 
         try {
@@ -239,7 +232,7 @@ public class ClockClient {
             reportMessage.append("\n3. Number of dropped Packets ").append(this.droppedPacketsSet.size());
             reportMessage.append("\n4. Percentage of dropped Packets ").append(packetsProcessedPercentage);
             reportMessage.append("\n5. Average rtt ").append(this.averageRoundTrip);
-            reportMessage.append("\n6. Average theta ").append(this.averageTheta);
+            reportMessage.append("\n6. Average theta (Drift)").append(this.averageTheta).append(" MilliSeconds per Second");
             reportMessage.append("\n7. The Histogram --> {");
             thetaFrequency.forEach((k, v) -> reportMessage.append("\n\t").append(k).append(" -->").append(v));
             reportMessage.append("\n}");
