@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SocketServer {
     public InetAddress inetAddress;
-    private int port = 1025;
+    private int port = 1024;
     private Map<String, String> packetsRecivedMap = new ConcurrentHashMap<>();
 
     public InetAddress getSelfIP() throws SocketException, UnknownHostException {

@@ -8,7 +8,7 @@ import java.net.InetAddress;
 public class ClockClientSocket {
     InetAddress serverIP;
     DatagramSocket socket;
-    int port = 1025;
+    int port = 1024;
     DatagramPacket packet = null;
     int timeoutTIme = 9000;
 
